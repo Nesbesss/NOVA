@@ -2,11 +2,6 @@ const getBackendUrl = () => {
   if (import.meta.env.VITE_BACKEND_URL) {
     return import.meta.env.VITE_BACKEND_URL;
   }
-  if (import.meta.env.PROD) {
-    const url = new URL(window.location.origin);
-    url.port = '5001';
-    return url.toString().replace(/\/$/, '');
-  }
   return 'http://localhost:5001';
 };
 
