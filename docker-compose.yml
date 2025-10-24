@@ -1,0 +1,17 @@
+services:
+  nova:
+    build: .
+    container_name: nova-app
+    ports:
+      - "5173:5173"  # Frontend
+      - "5001:5001"  # Backend API
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

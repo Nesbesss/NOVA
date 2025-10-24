@@ -1,0 +1,7 @@
+flask==3.0.0
+flask-cors==4.0.0
+ytmusicapi==1.4.2
+python-dotenv==1.0.0
+yt-dlp>=2025.10.22
+certifi>=2025.10.5
+requests>=2.31.0

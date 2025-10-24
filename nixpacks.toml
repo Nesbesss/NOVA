@@ -1,0 +1,14 @@
+[phases.setup]
+nixPkgs = ["nodejs-18_x", "python313", "python313Packages.pip"]
+
+[phases.install]
+cmds = [
+  "npm install",
+  "pip install -r backend/requirements.txt"
+]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "bash railway-start.sh"
