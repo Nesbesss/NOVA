@@ -22,6 +22,7 @@ function App() {
   const [backendAvailable, setBackendAvailable] = useState(false);
   const [ytAudioUrl, setYtAudioUrl] = useState(null);
   const [isYtPlaying, setIsYtPlaying] = useState(false);
+  const [loopMode, setLoopMode] = useState(1); // 0 = off, 1 = repeat all (default), 2 = repeat one
   const ytAudioRef = useRef(null);
 
   useEffect(() => {
@@ -126,8 +127,22 @@ function App() {
     };
   }, [token]);
 
-    const handleTrackSelect = async (track) => {
+    const handleTrackSelect = async (track, customPlaylist = null) => {
     setCurrentTrack(track);
+    setShowPlayer(true);
+    
+    // If a custom playlist is provided (from PlaylistCreator), use it
+    if (customPlaylist && customPlaylist.length > 0) {
+      setPlaylist(customPlaylist);
+      const trackIndex = customPlaylist.findIndex(t => t.id === track.id);
+      setPlaylistIndex(trackIndex >= 0 ? trackIndex : 0);
+      console.log('🎵 Playing custom playlist with', customPlaylist.length, 'tracks');
+    }
+    // Otherwise, auto-generate playlist from recommendations if using YouTube Music
+    else if (useYTMusic && backendAvailable) {
+      // Fetch recommendations for this track
+      fetchRecommendations(track);
+    }
     
     if (useYTMusic) {
       return;
@@ -145,17 +160,57 @@ function App() {
     }
   };
 
+  const fetchRecommendations = async (track) => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
+      const response = await fetch(`${backendUrl}/api/recommendations/${track.id}`);
+      const data = await response.json();
+      
+      if (data.tracks && data.tracks.length > 0) {
+        // Create a playlist with current track + recommendations
+        // But first check if we already have a playlist to avoid resetting
+        if (!playlist || playlist.length === 0 || playlist[0].id !== track.id) {
+          const newPlaylist = [track, ...data.tracks];
+          setPlaylist(newPlaylist);
+          setPlaylistIndex(0);
+          console.log('✓ Auto-generated playlist with', data.tracks.length, 'recommendations');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    }
+  };
+
   const handleNextTrack = () => {
-    if (playlist && playlistIndex < playlist.length - 1) {
-      const nextTrack = playlist[playlistIndex + 1];
-      handleTrackSelect(nextTrack, playlist);
+    if (playlist && playlist.length > 0) {
+      if (playlistIndex < playlist.length - 1) {
+        // Normal case: move to next song
+        const nextIndex = playlistIndex + 1;
+        const nextTrack = playlist[nextIndex];
+        setPlaylistIndex(nextIndex);
+        setCurrentTrack(nextTrack);
+        
+        // Fetch more recommendations when nearing end of playlist
+        if (useYTMusic && nextIndex >= playlist.length - 3) {
+          fetchRecommendations(nextTrack);
+        }
+      } else if (loopMode === 1) {
+        // At end of playlist, but loop all is enabled - go back to start
+        const nextTrack = playlist[0];
+        setPlaylistIndex(0);
+        setCurrentTrack(nextTrack);
+        console.log('🔁 Looping back to start of playlist');
+      }
+      // If loopMode === 0 and at end, do nothing (song just stops)
     }
   };
 
   const handlePreviousTrack = () => {
     if (playlist && playlistIndex > 0) {
-      const prevTrack = playlist[playlistIndex - 1];
-      handleTrackSelect(prevTrack, playlist);
+      const prevIndex = playlistIndex - 1;
+      const prevTrack = playlist[prevIndex];
+      setPlaylistIndex(prevIndex);
+      setCurrentTrack(prevTrack);
     }
   };
 
@@ -298,12 +353,14 @@ function App() {
             onBack={() => setShowPlayer(false)}
             onNextTrack={handleNextTrack}
             onPreviousTrack={handlePreviousTrack}
-            hasNext={playlist && playlistIndex < playlist.length - 1}
+            hasNext={playlist && (playlistIndex < playlist.length - 1 || loopMode === 1)}
             hasPrevious={playlist && playlistIndex > 0}
             useYTMusic={true}
             audioRef={ytAudioRef}
             isPlaying={isYtPlaying}
             setIsPlaying={setIsYtPlaying}
+            loopMode={loopMode}
+            setLoopMode={setLoopMode}
           />
         ) : (
           <Player 

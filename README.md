@@ -7,9 +7,14 @@ A beautiful, minimalist music player supporting both **Spotify Premium** and **Y
 - 🎵 **Dual Music Sources**
   - Spotify Premium playback with Web SDK
   - YouTube Music (free access, no ads required!)
-- 🎨 **20 Customizable Background Themes**
+- � **AI-Powered Lyrics** with Karaoke-Style Display
+  - Automatic lyrics fetching from free APIs
+  - AI transcription using Whisper (works offline!)
+  - Live synced lyrics with auto-scroll (like Spotify)
+  - Caching for instant replay
+- �🎨 **20 Customizable Background Themes**
 - 🎵 **Audio Visualizer** with 9 animated bars
-- � **Live Search** with 500ms debounce
+- 🔍 **Live Search** with 500ms debounce
 - 📱 **Mini Player Widget** for background playback
 - 📝 **Playlist Creator** with Spotify sync
 - ⚙️ **Settings Panel** with music source toggle
@@ -57,6 +62,11 @@ npm run dev
 App runs on `http://127.0.0.1:5173`
 
 #### Backend (Optional - for YouTube Music)
+
+**Note:** For AI lyrics transcription, you'll need FFmpeg installed:
+- **macOS**: `brew install ffmpeg`
+- **Windows**: Download from https://ffmpeg.org or `choco install ffmpeg`
+- **Linux**: `sudo apt install ffmpeg`
 
 ```bash
 # Navigate to backend
