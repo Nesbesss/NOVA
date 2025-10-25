@@ -6,11 +6,37 @@ import yt_dlp
 import requests
 import certifi
 import ssl
+import json
+from pathlib import Path
+import tempfile
+import hashlib
 
 app = Flask(__name__)
 CORS(app)
 
 ytmusic = YTMusic()
+
+# Create cache directory for lyrics
+LYRICS_CACHE_DIR = Path(tempfile.gettempdir()) / 'nova_lyrics_cache'
+LYRICS_CACHE_DIR.mkdir(exist_ok=True)
+
+# Global variable to hold Whisper model (lazy load)
+whisper_model = None
+
+def get_whisper_model():
+    """Lazy load Whisper model"""
+    global whisper_model
+    if whisper_model is None:
+        try:
+            from faster_whisper import WhisperModel
+            print("Loading Whisper model (base - better accuracy for multi-language)...")
+            # Use 'base' model for better accuracy, especially for non-English songs
+            # Models: tiny (fastest) < base (balanced) < small (best accuracy but slower)
+            whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
+            print("✓ Whisper model loaded!")
+        except Exception as e:
+            print(f"Error loading Whisper model: {e}")
+    return whisper_model
 
 @app.route('/api/search', methods=['GET'])
 def search():
@@ -207,6 +233,173 @@ def get_thumbnail(video_id):
 def health():
     """Health check endpoint"""
     return jsonify({'status': 'ok', 'service': 'ytmusic-backend'})
+
+@app.route('/api/recommendations/<video_id>', methods=['GET'])
+def get_recommendations(video_id):
+    """Get song recommendations based on a video ID"""
+    try:
+        # Get the watch playlist (related songs) from YouTube Music
+        watch_playlist = ytmusic.get_watch_playlist(videoId=video_id, limit=20)
+        
+        if not watch_playlist or 'tracks' not in watch_playlist:
+            return jsonify({'tracks': []})
+        
+        tracks = watch_playlist['tracks']
+        formatted_results = []
+        
+        for track in tracks:
+            track_video_id = track.get('videoId')
+            if not track_video_id or track_video_id == video_id:
+                continue  # Skip the current song
+                
+            thumbnail_url = ''
+            if track_video_id:
+                thumbnail_url = f'https://i.ytimg.com/vi/{track_video_id}/maxresdefault.jpg'
+            elif track.get('thumbnail'):
+                thumbnails = track['thumbnail']
+                if thumbnails:
+                    thumbnail_url = thumbnails[-1]['url']
+                    if '=w' in thumbnail_url or '=s' in thumbnail_url:
+                        thumbnail_url = thumbnail_url.split('=w')[0].split('=s')[0]
+            
+            formatted_track = {
+                'id': track_video_id,
+                'name': track.get('title'),
+                'artists': [{'name': artist['name']} for artist in track.get('artists', [])],
+                'album': {
+                    'name': track.get('album', {}).get('name', 'Unknown Album') if track.get('album') else 'Unknown Album',
+                    'images': [
+                        {'url': thumbnail_url, 'height': 640, 'width': 640}
+                    ]
+                },
+                'duration_ms': track.get('duration_seconds', 0) * 1000 if track.get('duration_seconds') else 0,
+                'uri': f"ytmusic:{track_video_id}",
+                'preview_url': None,
+                'external_urls': {
+                    'youtube': f"https://music.youtube.com/watch?v={track_video_id}"
+                }
+            }
+            formatted_results.append(formatted_track)
+        
+        return jsonify({'tracks': formatted_results})
+    except Exception as e:
+        print(f"Error getting recommendations: {e}")
+        return jsonify({'error': str(e), 'tracks': []}), 500
+
+@app.route('/api/lyrics/<video_id>', methods=['GET'])
+def get_lyrics(video_id):
+    try:
+        # Check cache first
+        cache_file = LYRICS_CACHE_DIR / f"{video_id}.json"
+        if cache_file.exists():
+            print(f"✓ Found cached lyrics for {video_id}")
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                cached_data = json.load(f)
+                return jsonify(cached_data)
+        
+        # Always use Whisper AI for karaoke-style synced lyrics!
+        print(f"🎤 No cache found, starting Whisper AI transcription for {video_id}...")
+        result_data = {
+            'lyrics': 'Transcribing lyrics with AI... This may take 15-30 seconds.',
+            'source': 'transcribing',
+            'synced': False,
+            'segments': []
+        }
+        return jsonify(result_data)
+            
+    except Exception as e:
+        print(f"Error getting lyrics: {str(e)}")
+        return jsonify({'error': str(e), 'lyrics': 'Lyrics not available'}), 500
+
+@app.route('/api/lyrics/<video_id>/transcribe', methods=['POST'])
+def transcribe_lyrics(video_id):
+    """Transcribe lyrics using Whisper AI"""
+    try:
+        # Check cache first
+        cache_file = LYRICS_CACHE_DIR / f"{video_id}.json"
+        if cache_file.exists():
+            print(f"✓ Found cached transcription for {video_id}")
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                cached_data = json.load(f)
+                if cached_data.get('source') == 'whisper_ai':
+                    return jsonify(cached_data)
+        
+        print(f"🎤 Starting Whisper transcription for {video_id}...")
+        
+        # Download audio file
+        audio_file = LYRICS_CACHE_DIR / f"{video_id}.mp3"
+        
+        if not audio_file.exists():
+            print("📥 Downloading audio...")
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': str(audio_file.with_suffix('')),
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+                'quiet': True,
+            }
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([f'https://music.youtube.com/watch?v={video_id}'])
+        
+        # Transcribe with Whisper
+        print("🎵 Transcribing with Whisper AI...")
+        model = get_whisper_model()
+        
+        if model is None:
+            return jsonify({
+                'error': 'Whisper model not available',
+                'lyrics': 'AI transcription unavailable'
+            }), 500
+        
+        # Auto-detect language (supports 99 languages!)
+        segments_list, info = model.transcribe(str(audio_file), word_timestamps=False)
+        detected_language = info.language
+        print(f"🌍 Detected language: {detected_language}")
+        
+        lyrics_segments = []
+        lyrics_lines = []
+        
+        for segment in segments_list:
+            text = segment.text.strip()
+            if text:
+                lyrics_lines.append(text)
+                lyrics_segments.append({
+                    'start': segment.start,
+                    'text': text
+                })
+        
+        lyrics_text = '\n'.join(lyrics_lines)
+        
+        # Cache the result
+        result_data = {
+            'lyrics': lyrics_text,
+            'source': 'whisper_ai',
+            'synced': True,
+            'segments': lyrics_segments
+        }
+        
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            json.dump(result_data, f, ensure_ascii=False, indent=2)
+        
+        # Clean up audio file to save storage - we only need the JSON!
+        audio_file.unlink(missing_ok=True)
+        print(f"✓ Audio file deleted, lyrics cached")
+        
+        print(f"✓ Transcription complete! {len(lyrics_segments)} segments")
+        return jsonify(result_data)
+        
+    except Exception as e:
+        print(f"Error transcribing: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e),
+            'lyrics': 'Transcription failed'
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
