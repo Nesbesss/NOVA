@@ -1,9 +1,10 @@
-# Minplay - Minimalist Music Player
+# Minplay
 
-A beautiful, minimalist music player supporting both **Spotify Premium** and **YouTube Music** (free, no ads).
+A minimalist music player with Spotify and YouTube Music support.
+
+*Built by a 13-year-old developer learning full-stack development*
 
 ## Features
-
 - 🎵 **Dual Music Sources**
   - Spotify Premium playback with Web SDK
   - YouTube Music (free access!)
