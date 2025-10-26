@@ -6,7 +6,7 @@ A beautiful, minimalist music player supporting both **Spotify Premium** and **Y
 
 - 🎵 **Dual Music Sources**
   - Spotify Premium playback with Web SDK
-  - YouTube Music (free access, no ads required!)
+  - YouTube Music (free access!)
 - � **AI-Powered Lyrics** with Karaoke-Style Display
   - Automatic lyrics fetching from free APIs
   - AI transcription using Whisper (works offline!)
@@ -166,6 +166,9 @@ Minimalist brutalist aesthetic with:
 **For YouTube Music:**
 - Python 3.8+
 - Running Flask backend
+
+## ⚠️ Important
+This is a **learning project** by a 13-year-old student.
 
 ## License
 
