@@ -32,7 +32,7 @@ export default function YTMusicPlayer({
     const updateTime = () => {
       setPosition(audio.currentTime);
       
-      // Update current lyric line based on time
+      
       if (lyricsSegments.length > 0) {
         const currentTime = audio.currentTime;
         let foundIndex = -1;
@@ -62,14 +62,14 @@ export default function YTMusicPlayer({
       console.log('Song ended, loop mode:', loopMode);
       
       if (loopMode === 2) {
-        // Repeat one - replay current song
+        
         audio.currentTime = 0;
         audio.play();
       } else if (loopMode === 1 || hasNext) {
-        // Repeat all or has next song - play next
+        
         handleNext();
       }
-      // If loopMode === 0 and no next song, do nothing (song just ends)
+     
     };
     const handleLoadedMetadata = () => {
       console.log('Audio metadata loaded, duration:', audio.duration);
@@ -97,7 +97,7 @@ export default function YTMusicPlayer({
     };
   }, [currentTrack, lyricsSegments, loopMode, hasNext]);
 
-  // Auto-scroll lyrics to keep current line centered
+  
   useEffect(() => {
     if (lyricsEnabled && lyricsContainerRef.current && currentLyricIndex >= 0) {
       const container = lyricsContainerRef.current;
@@ -108,7 +108,7 @@ export default function YTMusicPlayer({
         const lineTop = currentLine.offsetTop;
         const lineHeight = currentLine.clientHeight;
         
-        // Scroll to center the current line
+        
         container.scrollTo({
           top: lineTop - containerHeight / 2 + lineHeight / 2,
           behavior: 'smooth'
@@ -117,7 +117,7 @@ export default function YTMusicPlayer({
     }
   }, [currentLyricIndex, lyricsEnabled]);
 
-  // Close menu when clicking outside
+  
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -146,8 +146,7 @@ export default function YTMusicPlayer({
 
   const handleNext = () => {
     if (onNextTrack) {
-      // Always call onNextTrack if it exists
-      // The parent component will handle whether there's actually a next track
+      
       onNextTrack();
     }
   };
@@ -172,7 +171,7 @@ export default function YTMusicPlayer({
   };
 
   const toggleLoop = () => {
-    setLoopMode((prev) => (prev + 1) % 3); // Cycle through 0 → 1 → 2 → 0
+    setLoopMode((prev) => (prev + 1) % 3); 
   };
 
   const formatTime = (seconds) => {
@@ -190,7 +189,7 @@ export default function YTMusicPlayer({
 
   const toggleLyrics = async () => {
     if (!lyricsEnabled && !lyrics) {
-      // First time enabling - fetch lyrics
+      
       await fetchLyrics();
     }
     setLyricsEnabled(!lyricsEnabled);
@@ -217,12 +216,12 @@ export default function YTMusicPlayer({
         setLyrics('Lyrics not available for this song.');
         setLyricsSegments([]);
       } else if (data.source === 'transcribing') {
-        // Need to transcribe with Whisper
+       
         setLyrics(data.lyrics);
         setLyricsSegments([]);
         setIsTranscribing(true);
         
-        // Start transcription in background
+        
         transcribeWithWhisper(videoId);
       } else {
         setLyrics(data.lyrics || 'Lyrics not available for this song.');
@@ -330,7 +329,7 @@ export default function YTMusicPlayer({
                   </svg>
                 </button>
                 
-                {/* Three-dot menu button */}
+               
                 <div className="menu-container" ref={menuRef}>
                   <button 
                     className={`control-btn menu-btn ${showMenu ? 'active' : ''}`}
@@ -344,7 +343,7 @@ export default function YTMusicPlayer({
                     </svg>
                   </button>
                   
-                  {/* Dropdown menu */}
+                  
                   {showMenu && (
                     <div className="dropdown-menu">
                       <button 
@@ -424,7 +423,7 @@ export default function YTMusicPlayer({
             </div>
           </div>
           
-          {/* Inline Lyrics Display - Below everything */}
+          
           {lyricsEnabled && (
             <div className="lyrics-inline-container">
               {isTranscribing && (
@@ -436,7 +435,7 @@ export default function YTMusicPlayer({
                 {loadingLyrics ? (
                   <div className="lyrics-loading-inline">Loading lyrics...</div>
                 ) : lyricsSegments.length > 0 ? (
-                  // Karaoke-style synced lyrics
+                  
                   lyricsSegments.map((segment, index) => (
                     <div 
                       key={index}
@@ -446,7 +445,7 @@ export default function YTMusicPlayer({
                     </div>
                   ))
                 ) : (
-                  // Plain text lyrics
+                  
                   <div className="lyrics-plain-inline">{lyrics}</div>
                 )}
               </div>
