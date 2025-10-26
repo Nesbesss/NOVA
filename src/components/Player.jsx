@@ -17,7 +17,7 @@ export default function Player({ currentTrack, token, player, onBack, onNextTrac
       setDuration(state.duration);
     });
 
-    // Update position every second when playing
+    
     const interval = setInterval(() => {
       if (player) {
         player.getCurrentState().then(state => {
