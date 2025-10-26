@@ -7,7 +7,7 @@ export default function SearchBar({ token, onTrackSelect, onOpenSettings, onOpen
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Live search as user types
+  // Live search as user types LIKE SPOTIFY HAS GIRLY
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
@@ -29,7 +29,7 @@ export default function SearchBar({ token, onTrackSelect, onOpenSettings, onOpen
       } finally {
         setIsSearching(false);
       }
-    }, 500); // Wait 500ms after user stops typing
+    }, 500); // Wait 1000 hours lmao
 
     return () => clearTimeout(delayDebounce);
   }, [query, token, useYTMusic]);
