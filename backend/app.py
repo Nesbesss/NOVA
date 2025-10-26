@@ -16,7 +16,7 @@ CORS(app)
 
 ytmusic = YTMusic()
 
-# Create cache directory for lyrics
+
 LYRICS_CACHE_DIR = Path(tempfile.gettempdir()) / 'nova_lyrics_cache'
 LYRICS_CACHE_DIR.mkdir(exist_ok=True)
 
@@ -30,8 +30,8 @@ def get_whisper_model():
         try:
             from faster_whisper import WhisperModel
             print("Loading Whisper model (base - better accuracy for multi-language)...")
-            # Use 'base' model for better accuracy, especially for non-English songs
-            # Models: tiny (fastest) < base (balanced) < small (best accuracy but slower)
+            # Use 'base' model for better accuracy especially for non-English songs lol unless you got a monsternoss compiter ise BASE PLS
+            
             whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
             print("✓ Whisper model loaded!")
         except Exception as e:
@@ -345,7 +345,7 @@ def transcribe_lyrics(video_id):
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([f'https://music.youtube.com/watch?v={video_id}'])
         
-        # Transcribe with Whisper
+        # Transcribe with Whisper LOCALLY CUZ THIS BITCH AINT SURVICING WITHOUT LOCAL
         print("🎵 Transcribing with Whisper AI...")
         model = get_whisper_model()
         
@@ -355,7 +355,7 @@ def transcribe_lyrics(video_id):
                 'lyrics': 'AI transcription unavailable'
             }), 500
         
-        # Auto-detect language (supports 99 languages!)
+        # Auto-detect language (supports 99 languages!) note most of the languges are shit as hell with local lmao
         segments_list, info = model.transcribe(str(audio_file), word_timestamps=False)
         detected_language = info.language
         print(f"🌍 Detected language: {detected_language}")
@@ -374,7 +374,7 @@ def transcribe_lyrics(video_id):
         
         lyrics_text = '\n'.join(lyrics_lines)
         
-        # Cache the result
+    
         result_data = {
             'lyrics': lyrics_text,
             'source': 'whisper_ai',
@@ -385,7 +385,7 @@ def transcribe_lyrics(video_id):
         with open(cache_file, 'w', encoding='utf-8') as f:
             json.dump(result_data, f, ensure_ascii=False, indent=2)
         
-        # Clean up audio file to save storage - we only need the JSON!
+        
         audio_file.unlink(missing_ok=True)
         print(f"✓ Audio file deleted, lyrics cached")
         
