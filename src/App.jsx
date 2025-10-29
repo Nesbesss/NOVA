@@ -22,7 +22,7 @@ function App() {
   const [backendAvailable, setBackendAvailable] = useState(false);
   const [ytAudioUrl, setYtAudioUrl] = useState(null);
   const [isYtPlaying, setIsYtPlaying] = useState(false);
-  const [loopMode, setLoopMode] = useState(1); // 0 = off, 1 = repeat all (default), 2 = repeat one
+  const [loopMode, setLoopMode] = useState(1); 
   const ytAudioRef = useRef(null);
 
   useEffect(() => {
@@ -53,7 +53,7 @@ function App() {
   }, [ytAudioUrl]);
 
   useEffect(() => {
-    // Check if backend is available
+    
     if (useYTMusic) {
       checkBackendHealth().then(available => {
         setBackendAvailable(available);
@@ -131,16 +131,16 @@ function App() {
     setCurrentTrack(track);
     setShowPlayer(true);
     
-    // If a custom playlist is provided (from PlaylistCreator), use it
+    
     if (customPlaylist && customPlaylist.length > 0) {
       setPlaylist(customPlaylist);
       const trackIndex = customPlaylist.findIndex(t => t.id === track.id);
       setPlaylistIndex(trackIndex >= 0 ? trackIndex : 0);
       console.log('🎵 Playing custom playlist with', customPlaylist.length, 'tracks');
     }
-    // Otherwise, auto-generate playlist from recommendations if using YouTube Music
+    
     else if (useYTMusic && backendAvailable) {
-      // Fetch recommendations for this track
+      
       fetchRecommendations(track);
     }
     
@@ -167,8 +167,8 @@ function App() {
       const data = await response.json();
       
       if (data.tracks && data.tracks.length > 0) {
-        // Create a playlist with current track + recommendations
-        // But first check if we already have a playlist to avoid resetting
+
+        
         if (!playlist || playlist.length === 0 || playlist[0].id !== track.id) {
           const newPlaylist = [track, ...data.tracks];
           setPlaylist(newPlaylist);
@@ -184,24 +184,24 @@ function App() {
   const handleNextTrack = () => {
     if (playlist && playlist.length > 0) {
       if (playlistIndex < playlist.length - 1) {
-        // Normal case: move to next song
+        
         const nextIndex = playlistIndex + 1;
         const nextTrack = playlist[nextIndex];
         setPlaylistIndex(nextIndex);
         setCurrentTrack(nextTrack);
         
-        // Fetch more recommendations when nearing end of playlist
+        
         if (useYTMusic && nextIndex >= playlist.length - 3) {
           fetchRecommendations(nextTrack);
         }
       } else if (loopMode === 1) {
-        // At end of playlist, but loop all is enabled - go back to start
+        
         const nextTrack = playlist[0];
         setPlaylistIndex(0);
         setCurrentTrack(nextTrack);
         console.log('🔁 Looping back to start of playlist');
       }
-      // If loopMode === 0 and at end, do nothing (song just stops)
+      
     }
   };
 
@@ -235,7 +235,7 @@ function App() {
   const handleToggleMusicSource = (enableYTMusic) => {
     if (enableYTMusic && backendAvailable) {
       setUseYTMusic(true);
-      // Stop Spotify player if running
+      
       if (player) {
         player.disconnect();
       }
@@ -243,7 +243,7 @@ function App() {
       setShowPlayer(false);
     } else if (!enableYTMusic) {
       setUseYTMusic(false);
-      // Will need to reconnect Spotify Web SDK if switching back
+      
       setCurrentTrack(null);
       setShowPlayer(false);
     }
@@ -305,7 +305,7 @@ function App() {
               className="login-button youtube-btn"
               onClick={() => {
                 setUseYTMusic(true);
-                setToken('ytmusic'); // Dummy token to bypass login
+                setToken('ytmusic'); 
               }}
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -324,7 +324,7 @@ function App() {
 
   return (
     <>
-      {/* Hidden audio element for YouTube Music - persists across page changes */}
+      {/* Hidden audio element for YouTube Music - persists across page changes period*/}
       {useYTMusic && (
         <audio ref={ytAudioRef} style={{ display: 'none' }} />
       )}
