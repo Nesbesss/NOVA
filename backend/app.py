@@ -20,7 +20,7 @@ ytmusic = YTMusic()
 LYRICS_CACHE_DIR = Path(tempfile.gettempdir()) / 'nova_lyrics_cache'
 LYRICS_CACHE_DIR.mkdir(exist_ok=True)
 
-# Global variable to hold Whisper model (lazy load)
+
 whisper_model = None
 
 def get_whisper_model():
@@ -30,7 +30,7 @@ def get_whisper_model():
         try:
             from faster_whisper import WhisperModel
             print("Loading Whisper model (base - better accuracy for multi-language)...")
-            # Use 'base' model for better accuracy especially for non-English songs lol unless you got a monsternoss compiter ise BASE PLS
+           
             
             whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
             print("✓ Whisper model loaded!")
@@ -238,7 +238,7 @@ def health():
 def get_recommendations(video_id):
     """Get song recommendations based on a video ID"""
     try:
-        # Get the watch playlist (related songs) from YouTube Music
+        
         watch_playlist = ytmusic.get_watch_playlist(videoId=video_id, limit=20)
         
         if not watch_playlist or 'tracks' not in watch_playlist:
@@ -250,7 +250,7 @@ def get_recommendations(video_id):
         for track in tracks:
             track_video_id = track.get('videoId')
             if not track_video_id or track_video_id == video_id:
-                continue  # Skip the current song
+                continue  
                 
             thumbnail_url = ''
             if track_video_id:
@@ -297,7 +297,7 @@ def get_lyrics(video_id):
                 cached_data = json.load(f)
                 return jsonify(cached_data)
         
-        # Always use Whisper AI for karaoke-style synced lyrics!
+       
         print(f"🎤 No cache found, starting Whisper AI transcription for {video_id}...")
         result_data = {
             'lyrics': 'Transcribing lyrics with AI... This may take 15-30 seconds.',
@@ -315,7 +315,7 @@ def get_lyrics(video_id):
 def transcribe_lyrics(video_id):
     """Transcribe lyrics using Whisper AI"""
     try:
-        # Check cache first
+        
         cache_file = LYRICS_CACHE_DIR / f"{video_id}.json"
         if cache_file.exists():
             print(f"✓ Found cached transcription for {video_id}")
@@ -326,7 +326,7 @@ def transcribe_lyrics(video_id):
         
         print(f"🎤 Starting Whisper transcription for {video_id}...")
         
-        # Download audio file
+        
         audio_file = LYRICS_CACHE_DIR / f"{video_id}.mp3"
         
         if not audio_file.exists():
