@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Primary Meta Tags -->
+    <title>{{track_name}} - {{artist_name}} | NOVA</title>
+    <meta name="title" content="{{track_name}} - {{artist_name}}">
+    <meta name="description" content="Listen to {{track_name}} by {{artist_name}} on NOVA">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="music.song">
+    <meta property="og:url" content="{{share_url}}">
+    <meta property="og:title" content="{{track_name}}">
+    <meta property="og:description" content="{{artist_name}} - Listen on NOVA">
+    <meta property="og:image" content="{{album_image}}">
+    <meta property="og:image:width" content="640">
+    <meta property="og:image:height" content="640">
+    <meta property="og:site_name" content="NOVA Music">
+    <meta property="music:musician" content="{{artist_name}}">
+    <meta property="music:duration" content="{{duration}}">
+    <meta property="music:album" content="{{album_name}}">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="{{share_url}}">
+    <meta property="twitter:title" content="{{track_name}} - {{artist_name}}">
+    <meta property="twitter:description" content="Listen on NOVA">
+    <meta property="twitter:image" content="{{album_image}}">
+    
+    <!-- Discord Embed Enhancement -->
+    <meta name="theme-color" content="#1DB954">
+    <meta property="og:audio" content="{{preview_url}}">
+    <meta property="og:audio:type" content="audio/mpeg">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 24px;
+            padding: 3rem;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.5s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .track-info {
+            text-align: center;
+        }
+        
+        .album-art {
+            width: 300px;
+            height: 300px;
+            border-radius: 16px;
+            margin: 0 auto 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            font-size: 2rem;
+            color: #1a1a1a;
+            margin-bottom: 0.5rem;
+        }
+        
+        .artist {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 1.5rem;
+        }
+        
+        .album {
+            font-size: 1rem;
+            color: #999;
+            margin-bottom: 2rem;
+        }
+        
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        button {
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .preview-btn {
+            background: #1DB954;
+            color: white;
+        }
+        
+        .preview-btn:hover {
+            background: #1ed760;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(29, 185, 84, 0.3);
+        }
+        
+        .open-btn {
+            background: #667eea;
+            color: white;
+        }
+        
+        .open-btn:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .spotify-btn {
+            background: transparent;
+            color: #1DB954;
+            border: 2px solid #1DB954;
+        }
+        
+        .spotify-btn:hover {
+            background: #1DB954;
+            color: white;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        audio {
+            width: 100%;
+            margin-top: 1rem;
+            border-radius: 12px;
+        }
+        
+        @media (max-width: 640px) {
+            .container {
+                padding: 2rem;
+            }
+            
+            .album-art {
+                width: 200px;
+                height: 200px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">NOVA</div>
+        <div class="track-info">
+            <img src="{{album_image}}" alt="{{track_name}}" class="album-art">
+            <h1>{{track_name}}</h1>
+            <div class="artist">{{artist_name}}</div>
+            <div class="album">{{album_name}}</div>
+            
+            <div class="actions">
+                {{#preview_url}}
+                <audio controls>
+                    <source src="{{preview_url}}" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                </audio>
+                {{/preview_url}}
+                
+                <button class="open-btn" onclick="window.location.href='{{app_url}}'">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    Open in NOVA
+                </button>
+                
+                <button class="spotify-btn" onclick="window.open('{{spotify_url}}', '_blank')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                    </svg>
+                    Listen on Spotify
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

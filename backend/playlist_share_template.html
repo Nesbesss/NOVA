@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{playlist_name}} - NOVA</title>
+    
+    <!-- Open Graph -->
+    <meta property="og:type" content="music.playlist">
+    <meta property="og:url" content="{{share_url}}">
+    <meta property="og:title" content="{{playlist_name}}">
+    <meta property="og:description" content="{{playlist_description}} • {{track_count}} tracks">
+    <meta property="og:site_name" content="NOVA">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="{{share_url}}">
+    <meta property="twitter:title" content="{{playlist_name}}">
+    <meta property="twitter:description" content="{{playlist_description}} • {{track_count}} tracks">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #000000 0%, #1a0000 25%, #330000 50%, #1a0000 75%, #000000 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: var(--cover-bg);
+            background-size: cover;
+            background-position: center;
+            filter: blur(100px) brightness(0.3);
+            transform: scale(1.3);
+            opacity: 0.4;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(255, 68, 68, 0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(255, 68, 68, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 2.5rem;
+            max-width: 650px;
+            width: 100%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 300;
+            background: linear-gradient(135deg, #ffffff 0%, #ff4444 50%, #ffffff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-transform: lowercase;
+            margin-bottom: 2rem;
+            text-align: center;
+            letter-spacing: -1px;
+        }
+
+        .playlist-header {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2.5rem;
+            align-items: flex-start;
+        }
+
+        .playlist-cover {
+            width: 180px;
+            height: 180px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.05);
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .cover-grid {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 2px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .cover-grid img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .cover-single {
+            width: 100%;
+            height: 100%;
+        }
+
+        .cover-single img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .cover-placeholder {
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 68, 68, 0.15);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 3.5rem;
+        }
+
+        .playlist-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .playlist-title {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 0.75rem;
+            line-height: 1.2;
+            letter-spacing: -0.5px;
+        }
+
+        .playlist-description {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 1.25rem;
+            line-height: 1.5;
+        }
+
+        .playlist-stats {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 0.6rem 1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: none;
+            text-transform: lowercase;
+        }
+
+        .btn-primary {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: #ffffff;
+            flex: 1;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-primary:hover {
+            background: rgba(255, 68, 68, 0.2);
+            border-color: rgba(255, 68, 68, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 68, 68, 0.2);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            flex: 1;
+            justify-content: center;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 68, 68, 0.2);
+            border-color: rgba(255, 68, 68, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 68, 68, 0.2);
+        }
+
+        .tracks-section {
+            margin-top: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: lowercase;
+        }
+
+        .tracks-list {
+            max-height: 350px;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tracks-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .tracks-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .tracks-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        .tracks-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .track-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.625rem;
+            border-radius: 12px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .track-item:hover {
+            background: rgba(255, 68, 68, 0.1);
+        }
+
+        .track-number {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            width: 28px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .track-image {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+
+        .track-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .track-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.95);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-bottom: 0.125rem;
+        }
+
+        .track-artist {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .track-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            font-size: 1rem;
+        }
+
+        .track-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .track-btn.liked {
+            background: rgba(255, 68, 68, 0.2);
+            border-color: rgba(255, 68, 68, 0.4);
+            color: #ff4444;
+        }
+
+        .footer {
+            margin-top: 1.5rem;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+            text-transform: lowercase;
+        }
+
+        .success-message {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            background: rgba(16, 185, 129, 0.3);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            color: white;
+            padding: 1.125rem 1.75rem;
+            border-radius: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            box-shadow: 0 12px 40px rgba(16, 185, 129, 0.4),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            display: none;
+            animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 2rem 1.25rem;
+            }
+
+            .playlist-header {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                gap: 1rem;
+            }
+
+            .playlist-cover {
+                width: 140px;
+                height: 140px;
+            }
+
+            .playlist-title {
+                font-size: 1.5rem;
+            }
+
+            .action-buttons {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .tracks-list {
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">nova</div>
+        
+        <div class="playlist-header">
+            <div class="playlist-cover" id="playlistCover">
+                <div class="cover-placeholder">
+                    <svg width="60" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 18V5l12-2v13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="2"/>
+                        <circle cx="18" cy="16" r="3" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="playlist-info">
+                <h1 class="playlist-title">{{playlist_name}}</h1>
+                <p class="playlist-description">{{playlist_description}}</p>
+                <div class="playlist-stats">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    {{track_count}} tracks
+                </div>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="{{app_url}}" class="btn btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 3l14 9-14 9V3z" fill="currentColor"/>
+                </svg>
+                open in nova
+            </a>
+            <button class="btn btn-secondary" onclick="savePlaylist()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" stroke="currentColor" stroke-width="2"/>
+                    <polyline points="17 21 17 13 7 13 7 21" stroke="currentColor" stroke-width="2"/>
+                    <polyline points="7 3 7 8 15 8" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                save playlist
+            </button>
+        </div>
+        
+        <div class="tracks-section">
+            <div class="section-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="8" cy="6" r="2" fill="currentColor"/>
+                    <circle cx="8" cy="12" r="2" fill="currentColor"/>
+                    <circle cx="8" cy="18" r="2" fill="currentColor"/>
+                    <line x1="13" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="13" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="13" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                tracks
+            </div>
+            <div class="tracks-list" id="tracksList"></div>
+        </div>
+        
+        <div class="footer">
+            shared from nova music
+        </div>
+    </div>
+    
+    <div class="success-message" id="successMessage"></div>
+    
+    <script>
+        const tracks = {{tracks_json}};
+        
+        function renderPlaylistCover() {
+            const coverDiv = document.getElementById('playlistCover');
+            const coverImages = tracks
+                .slice(0, 4)
+                .map(t => {
+                    // Try multiple possible thumbnail locations
+                    if (t.thumbnailUrl) return t.thumbnailUrl;
+                    if (t.thumbnail) return t.thumbnail;
+                    if (t.album?.images?.[0]?.url) return t.album.images[0].url;
+                    if (t.album?.images?.[0]) return t.album.images[0];
+                    return null;
+                })
+                .filter(Boolean);
+            
+            if (coverImages.length > 0) {
+                // Set background blur image
+                const firstCover = coverImages[0];
+                document.body.style.setProperty('--cover-bg', `url(${firstCover})`);
+                
+                // Render cover grid or single image
+                if (coverImages.length === 1) {
+                    coverDiv.innerHTML = `
+                        <div class="cover-single">
+                            <img src="${coverImages[0]}" alt="Album cover">
+                        </div>
+                    `;
+                } else {
+                    coverDiv.innerHTML = `
+                        <div class="cover-grid">
+                            ${coverImages.map(url => `<img src="${url}" alt="Album cover">`).join('')}
+                        </div>
+                    `;
+                }
+            } else {
+                document.body.style.setProperty('--cover-bg', 'none');
+            }
+        }
+        
+        function renderTracks() {
+            const tracksList = document.getElementById('tracksList');
+            tracksList.innerHTML = tracks.map((track, index) => {
+                // Get thumbnail from multiple possible locations
+                let thumbnail = '';
+                if (track.thumbnailUrl) thumbnail = track.thumbnailUrl;
+                else if (track.thumbnail) thumbnail = track.thumbnail;
+                else if (track.album?.images?.[0]?.url) thumbnail = track.album.images[0].url;
+                else if (track.album?.images?.[0]) thumbnail = track.album.images[0];
+                
+                // Get artist name
+                let artist = 'Unknown Artist';
+                if (track.artist) artist = track.artist;
+                else if (track.artists?.length > 0) {
+                    artist = track.artists.map(a => a.name).join(', ');
+                }
+                
+                return `
+                <div class="track-item">
+                    <div class="track-number">${index + 1}</div>
+                    <img class="track-image" 
+                         src="${thumbnail}" 
+                         alt="${track.title || track.name}"
+                         onerror="this.style.display='none'">
+                    <div class="track-info">
+                        <div class="track-name">${track.title || track.name}</div>
+                        <div class="track-artist">${artist}</div>
+                    </div>
+                    <button class="track-btn" onclick="likeTrack(${index}, this)" title="Like song">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" 
+                                  stroke="currentColor" 
+                                  stroke-width="2" 
+                                  stroke-linecap="round" 
+                                  stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+                `;
+            }).join('');
+        }
+        
+        function likeTrack(index, button) {
+            const track = tracks[index];
+            const likedSongs = JSON.parse(localStorage.getItem('likedSongs') || '[]');
+            
+            const isLiked = likedSongs.some(s => s.videoId === track.videoId);
+            
+            if (isLiked) {
+                const newLiked = likedSongs.filter(s => s.videoId !== track.videoId);
+                localStorage.setItem('likedSongs', JSON.stringify(newLiked));
+                button.classList.remove('liked');
+                showMessage('removed from liked');
+            } else {
+                likedSongs.push(track);
+                localStorage.setItem('likedSongs', JSON.stringify(likedSongs));
+                button.classList.add('liked');
+                showMessage('added to liked');
+            }
+        }
+        
+        function savePlaylist() {
+            const playlists = JSON.parse(localStorage.getItem('playlists') || '[]');
+            const newPlaylist = {
+                id: 'playlist-' + Date.now(),
+                name: '{{playlist_name}}',
+                description: '{{playlist_description}}',
+                tracks: tracks,
+                createdAt: Date.now()
+            };
+            playlists.push(newPlaylist);
+            localStorage.setItem('playlists', JSON.stringify(playlists));
+            showMessage('playlist saved!');
+        }
+        
+        function showMessage(text) {
+            const msg = document.getElementById('successMessage');
+            msg.textContent = text;
+            msg.classList.add('show');
+            setTimeout(() => msg.classList.remove('show'), 3000);
+        }
+        
+        // Check if songs are already liked
+        function updateLikedButtons() {
+            const likedSongs = JSON.parse(localStorage.getItem('likedSongs') || '[]');
+            tracks.forEach((track, index) => {
+                const button = document.querySelectorAll('.track-btn')[index];
+                if (likedSongs.some(s => s.videoId === track.videoId)) {
+                    button.classList.add('liked');
+                }
+            });
+        }
+        
+        renderPlaylistCover();
+        renderTracks();
+        setTimeout(updateLikedButtons, 100);
+    </script>
+</body>
+</html>

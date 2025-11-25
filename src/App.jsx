@@ -6,6 +6,10 @@ import Player from './components/Player';
 import YTMusicPlayer from './components/YTMusicPlayer';
 import Settings from './components/Settings';
 import PlaylistCreator from './components/PlaylistCreator';
+import LikedSongsView from './components/LikedSongsView';
+import ArtistView from './components/ArtistView';
+import ShareView from './components/ShareView';
+import Homepage from './components/Homepage';
 import './App.css';
 
 function App() {
@@ -15,6 +19,12 @@ function App() {
   const [deviceId, setDeviceId] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showPlaylists, setShowPlaylists] = useState(false);
+  const [showLikedSongs, setShowLikedSongs] = useState(false);
+  const [showArtist, setShowArtist] = useState(false);
+  const [selectedArtist, setSelectedArtist] = useState(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [shareData, setShareData] = useState(null);
   const [playlist, setPlaylist] = useState(null);
   const [playlistIndex, setPlaylistIndex] = useState(0);
   const [showPlayer, setShowPlayer] = useState(false);
@@ -22,13 +32,54 @@ function App() {
   const [backendAvailable, setBackendAvailable] = useState(false);
   const [ytAudioUrl, setYtAudioUrl] = useState(null);
   const [isYtPlaying, setIsYtPlaying] = useState(false);
-  const [loopMode, setLoopMode] = useState(1); // 0 = off, 1 = repeat all (default), 2 = repeat one
+  const [loopMode, setLoopMode] = useState(1); 
+  const [listeningHistory, setListeningHistory] = useState(() => {
+    const saved = localStorage.getItem('listening_history');
+    return saved ? JSON.parse(saved) : [];
+  });
   const ytAudioRef = useRef(null);
+  const trackStartTime = useRef(null);
+  const currentTrackRef = useRef(null);
+
+  
+  useEffect(() => {
+    localStorage.setItem('listening_history', JSON.stringify(listeningHistory));
+  }, [listeningHistory]);
+
+  
+  useEffect(() => {
+    if (currentTrack) {
+      trackStartTime.current = Date.now();
+      currentTrackRef.current = currentTrack;
+
+      const timer = setTimeout(() => {
+        
+        const historyEntry = {
+          trackId: currentTrack.id,
+          trackName: currentTrack.name,
+          artist: currentTrack.artists?.[0]?.name || 'Unknown',
+          artists: currentTrack.artists || [],
+          album: currentTrack.album,
+          duration_ms: currentTrack.duration_ms,
+          playedAt: new Date().toISOString(),
+          timestamp: Date.now()
+        };
+
+        setListeningHistory(prev => {
+          
+          const updated = [historyEntry, ...prev].slice(0, 500);
+          return updated;
+        });
+      }, 30000); 
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentTrack]);
 
   useEffect(() => {
     if (useYTMusic && currentTrack && backendAvailable) {
       const videoId = currentTrack.id;
-      const streamUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'}/api/stream/${videoId}`;
+      const streamUrl = `${import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:5001`}/api/stream/${videoId}`;
       setYtAudioUrl(streamUrl);
     }
   }, [currentTrack, useYTMusic, backendAvailable]);
@@ -53,7 +104,93 @@ function App() {
   }, [ytAudioUrl]);
 
   useEffect(() => {
-    // Check if backend is available
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const playlistShareId = urlParams.get('playlist');
+    
+    if (playlistShareId) {
+      console.log('[PLAYLIST SHARE] Loading playlist:', playlistShareId);
+      
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:5001`;
+      
+      fetch(`${backendUrl}/api/playlist/${playlistShareId}`)
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch playlist');
+          return res.json();
+        })
+        .then(playlistData => {
+          console.log('[PLAYLIST SHARE] Received data:', playlistData);
+          
+          
+          window.history.replaceState({}, document.title, '/');
+          
+          
+          const PLAYLISTS_KEY = 'nova_playlists';
+          const existingPlaylists = JSON.parse(localStorage.getItem(PLAYLISTS_KEY) || '[]');
+          console.log('[PLAYLIST SHARE] Current playlists:', existingPlaylists);
+          
+          
+          const alreadyExists = existingPlaylists.some(p => p.name === playlistData.name);
+          
+          if (alreadyExists) {
+            console.log('[PLAYLIST SHARE] Playlist already exists');
+            alert(`You already have "${playlistData.name}" in your collection!`);
+            setShowPlaylists(true);
+            return;
+          }
+          
+          
+          const newPlaylist = {
+            id: 'nova_playlist_' + Date.now(),
+            name: playlistData.name,
+            description: playlistData.description || '',
+            tracks: playlistData.tracks || [],
+            createdAt: Date.now()
+          };
+          
+          existingPlaylists.push(newPlaylist);
+          localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(existingPlaylists));
+          console.log('[PLAYLIST SHARE] Saved playlist:', newPlaylist);
+          console.log('[PLAYLIST SHARE] Total playlists now:', existingPlaylists.length);
+          
+          
+          window.dispatchEvent(new StorageEvent('storage', {
+            key: PLAYLISTS_KEY,
+            newValue: JSON.stringify(existingPlaylists),
+            url: window.location.href
+          }));
+          
+          
+          alert(`✓ Added "${playlistData.name}" to your collection!`);
+          
+          
+          setTimeout(() => {
+            setShowPlaylists(true);
+          }, 200);
+        })
+        .catch(err => {
+          console.error('[PLAYLIST SHARE] Error:', err);
+          alert(`Failed to load playlist: ${err.message}`);
+          alert(`Failed to load playlist: ${err.message}`);
+        });
+    }
+    
+    
+    const hash = window.location.hash;
+    if (hash.startsWith('#share/')) {
+      try {
+        const encodedData = hash.substring(7); 
+        const data = JSON.parse(decodeURIComponent(atob(encodedData)));
+        setShareData(data);
+        setShowShare(true);
+        
+        window.location.hash = '';
+      } catch (e) {
+        console.error('Invalid share link:', e);
+      }
+    }
+
+    
     if (useYTMusic) {
       checkBackendHealth().then(available => {
         setBackendAvailable(available);
@@ -84,6 +221,14 @@ function App() {
 
   useEffect(() => {
     if (!token) return;
+
+    
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:5001`;
+    fetch(`${backendUrl}/api/set-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    }).catch(err => console.log('Could not send token to backend:', err));
 
     const script = document.createElement('script');
     script.src = 'https://sdk.scdn.co/spotify-player.js';
@@ -131,16 +276,16 @@ function App() {
     setCurrentTrack(track);
     setShowPlayer(true);
     
-    // If a custom playlist is provided (from PlaylistCreator), use it
+    
     if (customPlaylist && customPlaylist.length > 0) {
       setPlaylist(customPlaylist);
       const trackIndex = customPlaylist.findIndex(t => t.id === track.id);
       setPlaylistIndex(trackIndex >= 0 ? trackIndex : 0);
       console.log('🎵 Playing custom playlist with', customPlaylist.length, 'tracks');
     }
-    // Otherwise, auto-generate playlist from recommendations if using YouTube Music
+    
     else if (useYTMusic && backendAvailable) {
-      // Fetch recommendations for this track
+      
       fetchRecommendations(track);
     }
     
@@ -162,13 +307,13 @@ function App() {
 
   const fetchRecommendations = async (track) => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:5001`;
       const response = await fetch(`${backendUrl}/api/recommendations/${track.id}`);
       const data = await response.json();
       
       if (data.tracks && data.tracks.length > 0) {
-        // Create a playlist with current track + recommendations
-        // But first check if we already have a playlist to avoid resetting
+        
+        
         if (!playlist || playlist.length === 0 || playlist[0].id !== track.id) {
           const newPlaylist = [track, ...data.tracks];
           setPlaylist(newPlaylist);
@@ -184,24 +329,24 @@ function App() {
   const handleNextTrack = () => {
     if (playlist && playlist.length > 0) {
       if (playlistIndex < playlist.length - 1) {
-        // Normal case: move to next song
+        
         const nextIndex = playlistIndex + 1;
         const nextTrack = playlist[nextIndex];
         setPlaylistIndex(nextIndex);
         setCurrentTrack(nextTrack);
         
-        // Fetch more recommendations when nearing end of playlist
+        
         if (useYTMusic && nextIndex >= playlist.length - 3) {
           fetchRecommendations(nextTrack);
         }
       } else if (loopMode === 1) {
-        // At end of playlist, but loop all is enabled - go back to start
+        
         const nextTrack = playlist[0];
         setPlaylistIndex(0);
         setCurrentTrack(nextTrack);
         console.log('🔁 Looping back to start of playlist');
       }
-      // If loopMode === 0 and at end, do nothing (song just stops)
+      
     }
   };
 
@@ -235,7 +380,7 @@ function App() {
   const handleToggleMusicSource = (enableYTMusic) => {
     if (enableYTMusic && backendAvailable) {
       setUseYTMusic(true);
-      // Stop Spotify player if running
+      
       if (player) {
         player.disconnect();
       }
@@ -243,10 +388,15 @@ function App() {
       setShowPlayer(false);
     } else if (!enableYTMusic) {
       setUseYTMusic(false);
-      // Will need to reconnect Spotify Web SDK if switching back
+      
       setCurrentTrack(null);
       setShowPlayer(false);
     }
+  };
+
+  const handleArtistClick = (artist) => {
+    setSelectedArtist(artist);
+    setShowArtist(true);
   };
 
   useEffect(() => {
@@ -305,7 +455,7 @@ function App() {
               className="login-button youtube-btn"
               onClick={() => {
                 setUseYTMusic(true);
-                setToken('ytmusic'); // Dummy token to bypass login
+                setToken('ytmusic'); 
               }}
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -324,7 +474,7 @@ function App() {
 
   return (
     <>
-      {/* Hidden audio element for YouTube Music - persists across page changes */}
+      {}
       {useYTMusic && (
         <audio ref={ytAudioRef} style={{ display: 'none' }} />
       )}
@@ -341,15 +491,47 @@ function App() {
       {showPlaylists && (
         <PlaylistCreator 
           token={token} 
-          onClose={() => setShowPlaylists(false)} 
+          onClose={() => setShowPlaylists(false)}
+          onPlayTrack={handleTrackSelect}
+        />
+      )}
+
+      {showLikedSongs && (
+        <LikedSongsView 
+          onClose={() => setShowLikedSongs(false)}
+          onPlayTrack={handleTrackSelect}
+        />
+      )}
+
+      {showArtist && selectedArtist && (
+        <ArtistView 
+          artist={selectedArtist}
+          token={token}
+          onClose={() => {
+            setShowArtist(false);
+            setSelectedArtist(null);
+          }}
+          onTrackSelect={handleTrackSelect}
+          useYTMusic={useYTMusic && backendAvailable}
+        />
+      )}
+
+      {showShare && shareData && (
+        <ShareView 
+          shareData={shareData}
+          onClose={() => {
+            setShowShare(false);
+            setShareData(null);
+          }}
           onPlayTrack={handleTrackSelect}
         />
       )}
       
-      {showPlayer && currentTrack && !showSettings && !showPlaylists ? (
+      {showPlayer && currentTrack && !showSettings && !showPlaylists && !showLikedSongs && !showArtist && !showShare ? (
         useYTMusic && backendAvailable ? (
           <YTMusicPlayer 
             currentTrack={currentTrack} 
+            token={token}
             onBack={() => setShowPlayer(false)}
             onNextTrack={handleNextTrack}
             onPreviousTrack={handlePreviousTrack}
@@ -361,6 +543,7 @@ function App() {
             setIsPlaying={setIsYtPlaying}
             loopMode={loopMode}
             setLoopMode={setLoopMode}
+            onArtistClick={handleArtistClick}
           />
         ) : (
           <Player 
@@ -372,18 +555,35 @@ function App() {
             onPreviousTrack={handlePreviousTrack}
             hasNext={playlist && playlistIndex < playlist.length - 1}
             hasPrevious={playlist && playlistIndex > 0}
+            onArtistClick={handleArtistClick}
           />
         )
-      ) : !showSettings && !showPlaylists ? (
-        <SearchBar 
-          token={token} 
-          onTrackSelect={handleTrackSelect}
-          onOpenSettings={() => setShowSettings(true)}
-          onOpenPlaylists={() => setShowPlaylists(true)}
-          currentTrack={currentTrack}
-          onShowPlayer={() => setShowPlayer(true)}
-          useYTMusic={useYTMusic && backendAvailable}
-        />
+      ) : !showSettings && !showPlaylists && !showLikedSongs && !showArtist ? (
+        showSearch ? (
+          <SearchBar 
+            token={token} 
+            onTrackSelect={handleTrackSelect}
+            onOpenSettings={() => setShowSettings(true)}
+            onOpenPlaylists={() => setShowPlaylists(true)}
+            currentTrack={currentTrack}
+            onShowPlayer={() => setShowPlayer(true)}
+            useYTMusic={useYTMusic && backendAvailable}
+            onBack={() => setShowSearch(false)}
+          />
+        ) : (
+          <Homepage
+            token={token}
+            onTrackSelect={handleTrackSelect}
+            useYTMusic={useYTMusic && backendAvailable}
+            onOpenSettings={() => setShowSettings(true)}
+            onOpenPlaylists={() => setShowPlaylists(true)}
+            onOpenLikedSongs={() => setShowLikedSongs(true)}
+            onOpenSearch={() => setShowSearch(true)}
+            currentTrack={currentTrack}
+            onShowPlayer={() => setShowPlayer(true)}
+            listeningHistory={listeningHistory}
+          />
+        )
       ) : null}
     </>
   );

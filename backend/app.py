@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, redirect, Response
+from flask import Flask, request, jsonify, redirect, Response, render_template_string
 from flask_cors import CORS
 from ytmusicapi import YTMusic
 import os
@@ -16,6 +16,9 @@ CORS(app)
 
 ytmusic = YTMusic()
 
+# Store Spotify token (in production, use Redis or database)
+spotify_token_cache = None
+
 # Create cache directory for lyrics
 LYRICS_CACHE_DIR = Path(tempfile.gettempdir()) / 'nova_lyrics_cache'
 LYRICS_CACHE_DIR.mkdir(exist_ok=True)
@@ -29,7 +32,7 @@ def get_whisper_model():
     if whisper_model is None:
         try:
             from faster_whisper import WhisperModel
-            print("Loading Whisper model (base - better accuracy for multi-language)...")
+            print("Loading Whisper model (small - better accuracy for multi-language)...")
             # Use 'base' model for better accuracy, especially for non-English songs
             # Models: tiny (fastest) < base (balanced) < small (best accuracy but slower)
             whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
@@ -400,6 +403,192 @@ def transcribe_lyrics(video_id):
             'error': str(e),
             'lyrics': 'Transcription failed'
         }), 500
+
+@app.route('/api/track-info/<track_id>')
+def get_track_info(track_id):
+    """Get basic track info for sharing (doesn't require auth)"""
+    try:
+        # This endpoint can be called without auth to get basic track info
+        # In production, you'd want to cache Spotify token server-side
+        return jsonify({
+            'id': track_id,
+            'share_url': f'{request.url_root}share/{track_id}'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/set-token', methods=['POST'])
+def set_token():
+    """Store Spotify token for server-side operations like share links"""
+    global spotify_token_cache
+    data = request.json
+    token = data.get('token')
+    if token:
+        spotify_token_cache = token
+        return jsonify({'success': True})
+    return jsonify({'error': 'No token provided'}), 400
+
+@app.route('/api/create-playlist-share', methods=['POST'])
+def create_playlist_share():
+    """Create a shareable playlist link"""
+    try:
+        data = request.json
+        playlist_id = data.get('id')
+        
+        # Generate a unique share ID
+        share_id = hashlib.md5(f"{playlist_id}{data.get('createdAt')}".encode()).hexdigest()[:12]
+        
+        # Store playlist data in a JSON file (in production, use a database)
+        share_dir = Path(__file__).parent / 'playlist_shares'
+        share_dir.mkdir(exist_ok=True)
+        
+        share_file = share_dir / f'{share_id}.json'
+        with open(share_file, 'w') as f:
+            json.dump(data, f)
+        
+        return jsonify({'shareId': share_id})
+    except Exception as e:
+        print(f"Error creating playlist share: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/playlist/<share_id>')
+def share_playlist(share_id):
+    """Generate share page for playlist"""
+    try:
+        # Load playlist data
+        share_file = Path(__file__).parent / 'playlist_shares' / f'{share_id}.json'
+        
+        if not share_file.exists():
+            return "Playlist not found", 404
+        
+        with open(share_file, 'r') as f:
+            playlist = json.load(f)
+        
+        # Read the HTML template
+        template_path = Path(__file__).parent / 'playlist_share_template.html'
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template = f.read()
+        
+        # Prepare data
+        playlist_name = playlist.get('name', 'Untitled Playlist')
+        playlist_desc = playlist.get('description', '')
+        tracks = playlist.get('tracks', [])
+        track_count = len(tracks)
+        
+        # Get first 4 album covers for grid
+        covers = []
+        for track in tracks[:4]:
+            if track.get('album', {}).get('images'):
+                covers.append(track['album']['images'][0].get('url', ''))
+        
+        share_url = f'{request.url_root}playlist/{share_id}'
+        # Frontend is on port 5173 (Vite), not on Flask port
+        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+        app_url = f'{frontend_url}?playlist={share_id}'
+        
+        # Replace template variables
+        html = template.replace('{{playlist_name}}', playlist_name)
+        html = html.replace('{{playlist_description}}', playlist_desc or 'No description')
+        html = html.replace('{{track_count}}', str(track_count))
+        html = html.replace('{{share_url}}', share_url)
+        html = html.replace('{{app_url}}', app_url)
+        html = html.replace('{{share_id}}', share_id)
+        
+        # Replace covers
+        for i in range(4):
+            cover_url = covers[i] if i < len(covers) else ''
+            html = html.replace(f'{{{{cover_{i+1}}}}}', cover_url)
+        
+        # Build tracks JSON for the page
+        tracks_json = json.dumps(tracks)
+        html = html.replace('{{tracks_json}}', tracks_json)
+        
+        return html
+        
+    except Exception as e:
+        print(f"Error generating playlist share page: {e}")
+        return "Error loading playlist", 500
+
+@app.route('/api/playlist/<share_id>')
+def get_playlist_data(share_id):
+    """API endpoint to get playlist data"""
+    try:
+        share_file = Path(__file__).parent / 'playlist_shares' / f'{share_id}.json'
+        
+        if not share_file.exists():
+            return jsonify({'error': 'Playlist not found'}), 404
+        
+        with open(share_file, 'r') as f:
+            playlist = json.load(f)
+        
+        return jsonify(playlist)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/share/<track_id>')
+def share_track(track_id):
+    """Generate share page with rich embeds for Discord/Twitter/etc"""
+    try:
+        # Get Spotify token from cache or environment
+        spotify_token = spotify_token_cache or os.environ.get('SPOTIFY_TOKEN')
+        
+        if not spotify_token:
+            # Try to get track info from YTMusic as fallback
+            return redirect(f'/?track={track_id}')
+        
+        # Fetch track details from Spotify
+        headers = {'Authorization': f'Bearer {spotify_token}'}
+        response = requests.get(
+            f'https://api.spotify.com/v1/tracks/{track_id}',
+            headers=headers
+        )
+        
+        if response.status_code != 200:
+            return redirect(f'/?track={track_id}')
+        
+        track = response.json()
+        
+        # Read the HTML template
+        template_path = Path(__file__).parent / 'share_template.html'
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template = f.read()
+        
+        # Prepare data for template
+        track_name = track.get('name', 'Unknown Track')
+        artist_name = ', '.join([artist['name'] for artist in track.get('artists', [])])
+        album_name = track.get('album', {}).get('name', 'Unknown Album')
+        album_image = track.get('album', {}).get('images', [{}])[0].get('url', '')
+        preview_url = track.get('preview_url', '')
+        duration = track.get('duration_ms', 0) // 1000
+        spotify_url = track.get('external_urls', {}).get('spotify', f'https://open.spotify.com/track/{track_id}')
+        share_url = f'{request.url_root}share/{track_id}'
+        app_url = f'{request.url_root}?track={track_id}'
+        
+        # Simple template replacement (you could use Jinja2 for more complex cases)
+        html = template.replace('{{track_name}}', track_name)
+        html = html.replace('{{artist_name}}', artist_name)
+        html = html.replace('{{album_name}}', album_name)
+        html = html.replace('{{album_image}}', album_image)
+        html = html.replace('{{duration}}', str(duration))
+        html = html.replace('{{spotify_url}}', spotify_url)
+        html = html.replace('{{share_url}}', share_url)
+        html = html.replace('{{app_url}}', app_url)
+        
+        # Handle preview URL (conditional rendering)
+        if preview_url:
+            html = html.replace('{{#preview_url}}', '')
+            html = html.replace('{{/preview_url}}', '')
+            html = html.replace('{{preview_url}}', preview_url)
+        else:
+            # Remove the audio section if no preview
+            import re
+            html = re.sub(r'{{#preview_url}}.*?{{/preview_url}}', '', html, flags=re.DOTALL)
+        
+        return html
+        
+    except Exception as e:
+        print(f"Error generating share page: {e}")
+        return redirect(f'/?track={track_id}')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))

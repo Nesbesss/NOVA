@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { searchTracksYTMusic } from '../ytmusicApi';
+import { getPlaylists, createPlaylist, addTrackToPlaylist as addToPlaylist, deletePlaylist } from '../localLibrary';
 
 export default function PlaylistCreator({ token, onClose, onPlayTrack }) {
   const [playlistName, setPlaylistName] = useState('');
@@ -11,9 +12,26 @@ export default function PlaylistCreator({ token, onClose, onPlayTrack }) {
   const [localPlaylists, setLocalPlaylists] = useState([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('local_playlists');
-    if (saved) setLocalPlaylists(JSON.parse(saved));
+    loadPlaylists();
+    
+    
+    const handleStorageChange = (e) => {
+      console.log('[PlaylistCreator] Storage event received:', e);
+      if (!e.key || e.key === 'nova_playlists') {
+        console.log('[PlaylistCreator] Reloading playlists...');
+        setTimeout(() => loadPlaylists(), 100);
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
+  const loadPlaylists = () => {
+    const playlists = getPlaylists();
+    console.log('[PlaylistCreator] Loaded playlists:', playlists.length, 'playlists');
+    setLocalPlaylists(playlists);
+  };
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -51,28 +69,60 @@ export default function PlaylistCreator({ token, onClose, onPlayTrack }) {
   const saveLocally = () => {
     if (!playlistName.trim() || tracks.length === 0) return;
 
-    const newPlaylist = {
-      id: Date.now().toString(),
-      name: playlistName,
-      description: playlistDescription,
-      tracks: tracks,
-      createdAt: new Date().toISOString(),
-    };
+    const newPlaylist = createPlaylist(playlistName, playlistDescription);
+    
+    
+    tracks.forEach(track => {
+      addToPlaylist(newPlaylist.id, track);
+    });
 
-    const updated = [...localPlaylists, newPlaylist];
-    setLocalPlaylists(updated);
-    localStorage.setItem('local_playlists', JSON.stringify(updated));
-
+    loadPlaylists();
     setPlaylistName('');
     setPlaylistDescription('');
     setTracks([]);
-    alert(`"${newPlaylist.name}" saved locally!`);
+  };
+
+  const handleDeletePlaylist = (playlistId, e) => {
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this playlist?')) {
+      deletePlaylist(playlistId);
+      loadPlaylists();
+    }
   };
 
   const playPlaylist = (playlist) => {
     if (playlist.tracks && playlist.tracks.length > 0) {
       onPlayTrack(playlist.tracks[0], playlist.tracks);
-      onClose(); // Close the playlist screen when playing
+      onClose(); 
+    }
+  };
+
+  const handleSharePlaylist = async (playlist, e) => {
+    e.stopPropagation();
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:5001`;
+      const response = await fetch(`${backendUrl}/api/create-playlist-share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: playlist.id,
+          name: playlist.name,
+          description: playlist.description,
+          tracks: playlist.tracks,
+          createdAt: playlist.createdAt
+        })
+      });
+      
+      const data = await response.json();
+      
+      const shareUrl = `http://${window.location.hostname}:5001/playlist/${data.shareId}`;
+      
+      
+      await navigator.clipboard.writeText(shareUrl);
+      alert('Playlist share link copied to clipboard!');
+    } catch (error) {
+      console.error('Error sharing playlist:', error);
+      alert('Failed to create share link');
     }
   };
 
@@ -102,7 +152,7 @@ export default function PlaylistCreator({ token, onClose, onPlayTrack }) {
             </button>
           </div>
 
-          {/* Creator Section */}
+          {}
           <div className="playlist-creator-section">
             <div className="creator-card">
               <div className="card-header">
@@ -236,7 +286,7 @@ export default function PlaylistCreator({ token, onClose, onPlayTrack }) {
             </div>
           </div>
 
-          {/* Saved Playlists Grid */}
+          {}
           <div className="playlists-grid-section">
             <div className="section-header">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -259,12 +309,12 @@ export default function PlaylistCreator({ token, onClose, onPlayTrack }) {
                 localPlaylists.map((playlist, index) => (
                   <div key={playlist.id} className="playlist-card" style={{ animationDelay: `${index * 0.1}s` }}>
                     <div className="playlist-card-cover">
-                      {playlist.tracks.length > 0 ? (
+                      {playlist.tracks && playlist.tracks.length > 0 ? (
                         <div className="cover-grid">
                           {playlist.tracks.slice(0, 4).map((track, idx) => (
                             <img 
                               key={idx}
-                              src={track.album.images[0]?.url || '/default-cover.png'} 
+                              src={track.album?.images?.[0]?.url || '/default-cover.png'} 
                               alt=""
                               className="cover-image"
                             />
@@ -288,6 +338,29 @@ export default function PlaylistCreator({ token, onClose, onPlayTrack }) {
                           <polygon points="5 3 19 12 5 21 5 3"></polygon>
                         </svg>
                       </button>
+                      <button 
+                        className="share-playlist-btn"
+                        onClick={(e) => handleSharePlaylist(playlist, e)}
+                        title="Share Playlist"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="18" cy="5" r="3"></circle>
+                          <circle cx="6" cy="12" r="3"></circle>
+                          <circle cx="18" cy="19" r="3"></circle>
+                          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                        </svg>
+                      </button>
+                      <button 
+                        className="delete-playlist-btn"
+                        onClick={(e) => handleDeletePlaylist(playlist.id, e)}
+                        title="Delete Playlist"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                      </button>
                     </div>
                     <div className="playlist-card-content">
                       <h3 className="playlist-card-name">{playlist.name}</h3>
@@ -299,7 +372,7 @@ export default function PlaylistCreator({ token, onClose, onPlayTrack }) {
                             <circle cx="6" cy="18" r="3"></circle>
                             <circle cx="18" cy="16" r="3"></circle>
                           </svg>
-                          {playlist.tracks.length} track{playlist.tracks.length !== 1 ? 's' : ''}
+                          {playlist.tracks?.length || 0} track{playlist.tracks?.length !== 1 ? 's' : ''}
                         </span>
                       </div>
                     </div>
